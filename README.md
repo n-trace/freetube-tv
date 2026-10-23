@@ -3,6 +3,8 @@ This is a free YoutubeTV "emulation" that works by tricking youtube web interfac
 
 This is mostly useful if you want to play stuff from youtube on your computer, and then *leanback* and use your Android/iOS youtube app as a remote.
 
+This fork is configured to keep playing after screen has been disconnected (for playing music on a remote Mac).
+
 ## Contributing
 Check for open issues and open a PR to fix those, or just open issues with suggestions and/or feedback.
 
