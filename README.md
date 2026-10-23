@@ -12,5 +12,11 @@ To run this project in your machine, follow these simple steps:
 * Run `npm install` or `yarn install` to install all project dependencies
 * Run `npm start` or `yarn start` to build and run the application in your machine
 
+If `yarn` is not installed globally, you can use the Yarn binary bundled in the repository directly via Node.js:
+* Install dependencies: `node .yarn/releases/yarn-4.0.2.cjs install`
+* Start the application: `node .yarn/releases/yarn-4.0.2.cjs start`
+
 ## LICENSE
 MIT
+
+(forked from [fa7ad/freetube-tv](https://github.com/fa7ad/freetube-tv))
