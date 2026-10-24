@@ -11,12 +11,12 @@ Check for open issues and open a PR to fix those, or just open issues with sugge
 ## Build and Run
 
 To run this project in your machine, follow these simple steps: 
-* Run `npm install` or `yarn install` to install all project dependencies
-* Run `npm start` or `yarn start` to build and run the application in your machine
+* Run `pnpm install` to install all project dependencies
+* Run `pnpm start` to build and run the application in your machine
+* Run `pnpm test` (unit tests) and `pnpm test:electron` (Electron integration tests) to verify the application
 
-If `yarn` is not installed globally, you can use the Yarn binary bundled in the repository directly via Node.js:
-* Install dependencies: `node .yarn/releases/yarn-4.0.2.cjs install`
-* Start the application: `node .yarn/releases/yarn-4.0.2.cjs start`
+### Dependency Updates & Supply-Chain Security
+Dependencies are managed with `pnpm` and updated weekly via Dependabot. Both `pnpm` (`minimumReleaseAge: 4320` in `pnpm-workspace.yaml`) and Dependabot (`cooldown: default-days: 3` in `.github/dependabot.yml`) enforce a **3-day cooldown period** for newly published package versions before they can be installed or proposed in pull requests.
 
 ## LICENSE
 MIT

@@ -16,6 +16,8 @@ const ALLOWED_HOSTS = new Set([
   "accounts.google.com",
 ]);
 
+const DEFAULT_URL = "https://www.youtube.com/tv#/?env_forceFullAnimation=true";
+
 const isAllowedUrl = (urlString) => {
   try {
     const parsed = new URL(urlString);
@@ -47,10 +49,18 @@ app.commandLine.appendSwitch(
   "CalculateNativeWinOcclusion,IntensiveWakeUpThrottling,BackgroundVideoOptimizations,MediaSessionService",
 );
 
-const createWindow = () => {
+const createWindow = (options = {}) => {
+  const targetUrl =
+    options.url || process.env.FREETUBE_TARGET_URL || DEFAULT_URL;
+  const showWindow =
+    options.show !== undefined
+      ? options.show
+      : process.env.FREETUBE_HEADLESS !== "1";
+
   const mainWindow = new BrowserWindow({
     width: 1920,
     height: 1100,
+    show: showWindow,
     icon: path.join(__dirname, "../assets/icon.png"),
     webPreferences: {
       preload: path.join(__dirname, "preload.js"),
@@ -89,9 +99,7 @@ const createWindow = () => {
     }
   });
 
-  mainWindow.loadURL(
-    "https://www.youtube.com/tv#/?env_forceFullAnimation=true",
-  );
+  mainWindow.loadURL(targetUrl);
 
   const filter = {
     urls: ["*://*.youtube.com/*"],
@@ -140,34 +148,46 @@ const createWindow = () => {
       })
       .catch(() => {});
   });
+
+  return mainWindow;
 };
 
 app.userAgentFallback = SMART_TV_UA;
 
 let powerSaveBlockerId = null;
 
-app.whenReady().then(() => {
-  powerSaveBlockerId = powerSaveBlocker.start("prevent-app-suspension");
-  createWindow();
+if (process.env.FREETUBE_TEST_MODE !== "1") {
+  app.whenReady().then(() => {
+    powerSaveBlockerId = powerSaveBlocker.start("prevent-app-suspension");
+    createWindow();
 
-  app.on("activate", () => {
-    if (BrowserWindow.getAllWindows().length === 0) {
-      createWindow();
+    app.on("activate", () => {
+      if (BrowserWindow.getAllWindows().length === 0) {
+        createWindow();
+      }
+    });
+  });
+
+  app.on("will-quit", () => {
+    if (
+      powerSaveBlockerId !== null &&
+      powerSaveBlocker.isStarted(powerSaveBlockerId)
+    ) {
+      powerSaveBlocker.stop(powerSaveBlockerId);
     }
   });
-});
 
-app.on("will-quit", () => {
-  if (
-    powerSaveBlockerId !== null &&
-    powerSaveBlocker.isStarted(powerSaveBlockerId)
-  ) {
-    powerSaveBlocker.stop(powerSaveBlockerId);
-  }
-});
+  app.on("window-all-closed", () => {
+    if (process.platform !== "darwin") {
+      app.quit();
+    }
+  });
+}
 
-app.on("window-all-closed", () => {
-  if (process.platform !== "darwin") {
-    app.quit();
-  }
-});
+module.exports = {
+  SMART_TV_UA,
+  ALLOWED_HOSTS,
+  DEFAULT_URL,
+  isAllowedUrl,
+  createWindow,
+};

@@ -1,0 +1,9 @@
+allowBuilds:
+  electron: true
+  electron-winstaller: true
+  fs-xattr: true
+  macos-alias: true
+
+minimumReleaseAge: 4320
+
+nodeLinker: hoisted
