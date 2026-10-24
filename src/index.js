@@ -14,7 +14,10 @@ const ALLOWED_HOSTS = new Set([
   "youtube.com",
   "www.youtube.com",
   "accounts.google.com",
+  "myaccount.google.com",
 ]);
+
+const ALLOWED_PERMISSIONS = new Set(["fullscreen", "mediaKeySystem"]);
 
 const DEFAULT_URL = "https://www.youtube.com/tv#/?env_forceFullAnimation=true";
 
@@ -26,11 +29,21 @@ const isAllowedUrl = (urlString) => {
     }
     return (
       ALLOWED_HOSTS.has(parsed.hostname) ||
-      parsed.hostname.endsWith(".youtube.com") ||
-      parsed.hostname.endsWith(".google.com")
+      parsed.hostname.endsWith(".youtube.com")
     );
   } catch {
     return false;
+  }
+};
+
+const openExternalSafely = (urlString) => {
+  try {
+    const parsed = new URL(urlString);
+    if (parsed.protocol === "https:") {
+      shell.openExternal(urlString);
+    }
+  } catch {
+    // Ignore invalid URLs
   }
 };
 
@@ -49,11 +62,52 @@ app.commandLine.appendSwitch(
   "CalculateNativeWinOcclusion,IntensiveWakeUpThrottling,BackgroundVideoOptimizations,MediaSessionService",
 );
 
+let sessionConfigured = false;
+
+const configureSession = () => {
+  if (sessionConfigured) {
+    return;
+  }
+  sessionConfigured = true;
+
+  const filter = {
+    urls: ["*://*.youtube.com/*"],
+  };
+
+  session.defaultSession.webRequest.onBeforeSendHeaders(
+    filter,
+    (details, callback) => {
+      details.requestHeaders["User-Agent"] = SMART_TV_UA;
+      callback({ requestHeaders: details.requestHeaders });
+    },
+  );
+
+  session.defaultSession.setPermissionRequestHandler(
+    (_webContents, permission, callback) => {
+      callback(ALLOWED_PERMISSIONS.has(permission));
+    },
+  );
+
+  if (typeof session.defaultSession.setPermissionCheckHandler === "function") {
+    session.defaultSession.setPermissionCheckHandler(
+      (_webContents, permission) => ALLOWED_PERMISSIONS.has(permission),
+    );
+  }
+};
+
 const createWindow = (options = {}) => {
+  configureSession();
+
+  const isPackaged = Boolean(app.isPackaged);
+  const candidateUrl = isPackaged
+    ? DEFAULT_URL
+    : options.url || process.env.FREETUBE_TARGET_URL || DEFAULT_URL;
   const targetUrl =
-    options.url || process.env.FREETUBE_TARGET_URL || DEFAULT_URL;
-  const showWindow =
-    options.show !== undefined
+    isPackaged && !isAllowedUrl(candidateUrl) ? DEFAULT_URL : candidateUrl;
+
+  const showWindow = isPackaged
+    ? true
+    : options.show !== undefined
       ? options.show
       : process.env.FREETUBE_HEADLESS !== "1";
 
@@ -69,85 +123,27 @@ const createWindow = (options = {}) => {
       sandbox: true,
       webSecurity: true,
       allowRunningInsecureContent: false,
+      webviewTag: false,
       backgroundThrottling: false,
     },
   });
 
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
-    try {
-      const parsed = new URL(url);
-      if (parsed.protocol === "https:") {
-        shell.openExternal(url);
-      }
-    } catch {
-      // Ignore invalid URLs
-    }
+    openExternalSafely(url);
     return { action: "deny" };
   });
 
-  mainWindow.webContents.on("will-navigate", (event, navigationUrl) => {
+  const handleNavigation = (event, navigationUrl) => {
     if (!isAllowedUrl(navigationUrl)) {
       event.preventDefault();
-      try {
-        const parsed = new URL(navigationUrl);
-        if (parsed.protocol === "https:") {
-          shell.openExternal(navigationUrl);
-        }
-      } catch {
-        // Ignore invalid URLs
-      }
+      openExternalSafely(navigationUrl);
     }
-  });
-
-  mainWindow.loadURL(targetUrl);
-
-  const filter = {
-    urls: ["*://*.youtube.com/*"],
   };
 
-  session.defaultSession.webRequest.onBeforeSendHeaders(
-    filter,
-    (details, callback) => {
-      details.requestHeaders["User-Agent"] = SMART_TV_UA;
-      callback({ requestHeaders: details.requestHeaders });
-    },
-  );
+  mainWindow.webContents.on("will-navigate", handleNavigation);
+  mainWindow.webContents.on("will-redirect", handleNavigation);
 
-  const allowedPermissions = new Set(["fullscreen", "mediaKeySystem"]);
-  session.defaultSession.setPermissionRequestHandler(
-    (_webContents, permission, callback) => {
-      callback(allowedPermissions.has(permission));
-    },
-  );
-
-  // mainWindow.webContents.openDevTools();
-  const keepAliveScript = `
-    Object.defineProperty(document, "hidden", { get: () => false, configurable: true });
-    Object.defineProperty(document, "webkitHidden", { get: () => false, configurable: true });
-    Object.defineProperty(document, "visibilityState", { get: () => "visible", configurable: true });
-    Object.defineProperty(document, "webkitVisibilityState", { get: () => "visible", configurable: true });
-    document.hasFocus = () => true;
-
-    for (let event_name of ["visibilitychange", "webkitvisibilitychange", "blur", "pagehide", "freeze"]) {
-      window.addEventListener(event_name, function(event) {
-        event.stopImmediatePropagation();
-      }, true);
-      document.addEventListener(event_name, function(event) {
-        event.stopImmediatePropagation();
-      }, true);
-    }
-  `;
-
-  mainWindow.webContents.executeJavaScript(keepAliveScript, true).catch(() => {});
-
-  mainWindow.webContents.on("dom-ready", () => {
-    mainWindow.webContents
-      .executeJavaScript(keepAliveScript, true)
-      .then(() => {
-        console.log("Enjoy FreeTube TV");
-      })
-      .catch(() => {});
-  });
+  mainWindow.loadURL(targetUrl);
 
   return mainWindow;
 };
@@ -156,7 +152,7 @@ app.userAgentFallback = SMART_TV_UA;
 
 let powerSaveBlockerId = null;
 
-if (process.env.FREETUBE_TEST_MODE !== "1") {
+if (app.isPackaged || process.env.FREETUBE_TEST_MODE !== "1") {
   app.whenReady().then(() => {
     powerSaveBlockerId = powerSaveBlocker.start("prevent-app-suspension");
     createWindow();
@@ -187,7 +183,9 @@ if (process.env.FREETUBE_TEST_MODE !== "1") {
 module.exports = {
   SMART_TV_UA,
   ALLOWED_HOSTS,
+  ALLOWED_PERMISSIONS,
   DEFAULT_URL,
   isAllowedUrl,
+  configureSession,
   createWindow,
 };
