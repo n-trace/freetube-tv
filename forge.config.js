@@ -5,6 +5,18 @@ module.exports = {
   packagerConfig: {
     asar: true,
     icon: "./assets/icon",
+    ignore: [
+      /^\/\.github($|\/)/,
+      /^\/\.git($|\/)/,
+      /^\/test($|\/)/,
+      /^\/\.gitignore$/,
+      /^\/\.npmrc$/,
+      /^\/pnpm-lock\.yaml$/,
+      /^\/pnpm-workspace\.yaml$/,
+      /^\/README\.md$/,
+      /^\/start\.sh$/,
+      /^\/forge\.config\.js$/,
+    ],
   },
   rebuildConfig: {},
   makers: [
