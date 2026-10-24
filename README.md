@@ -10,6 +10,8 @@ Check for open issues and open a PR to fix those, or just open issues with sugge
 
 ## Build and Run
 
+Requires **Node.js >= 22.12.0** and **pnpm**.
+
 To run this project in your machine, follow these simple steps: 
 * Run `pnpm install` to install all project dependencies
 * Run `pnpm start` to build and run the application in your machine
